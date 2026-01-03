@@ -1,111 +1,150 @@
-import { AuthButton } from "@/components/auth-button";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { DateEntry } from "@/types";
-import { Suspense } from "react";
+import { revalidatePath } from "next/cache";
+import { RemoveEventButton } from "@/components/remove-event-button";
 
-// 1. Component for fetching and displaying the actual data
-async function DatesData() {
+/* ---------- Server Action: Add Event ---------- */
+
+async function addEvent(formData: FormData) {
+  "use server";
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const title = formData.get("title") as string;
+  const date_at = formData.get("date_at") as string;
+  const location = formData.get("location") as string | null;
+  const notes = formData.get("notes") as string | null;
+
+  if (!title || !date_at) return;
+
+  await supabase.from("dates").insert({
+    title,
+    date_at,
+    location,
+    notes,
+    status: "future",
+  });
+
+  revalidatePath("/");
+}
+
+/* ---------- Page ---------- */
+
+export default async function Page() {
+  noStore();
+
+  const supabase = await createClient();
+
+  const { data: events } = await supabase
     .from("dates")
-    .select("*")
-    .order("date_at", { ascending: false });
-
-  if (error) return <p className="text-red-500">Error: {error.message}</p>;
-
-  const dates: DateEntry[] = data || [];
-  const now = new Date();
-  const pastDates = dates.filter((d) => new Date(d.date_at) < now);
-  const futureDates = dates
-    .filter((d) => new Date(d.date_at) >= now)
-    .sort((a, b) => new Date(a.date_at).getTime() - new Date(b.date_at).getTime());
+    .select("id, title, date_at, location")
+    .eq("status", "future")
+    .order("date_at", { ascending: true });
 
   return (
-    <div className="grid md:grid-cols-2 gap-12 mt-10">
-      <section className="flex flex-col gap-6">
-        <h2 className="text-2xl font-bold text-blue-500 border-b pb-2">Upcoming Plans</h2>
-        {futureDates.length === 0 ? (
-          <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground">No plans yet.</div>
-        ) : (
-          futureDates.map(date => (
-            <div key={date.id} className="p-5 border rounded-xl bg-card shadow-sm">
-              <h3 className="font-bold">{date.title}</h3>
-              <p className="text-sm text-muted-foreground">📍 {date.location}</p>
-            </div>
-          ))
-        )}
-      </section>
+    <main className="min-h-screen bg-[#d6ccc6] flex items-center justify-center">
+      <div className="relative w-[92%] max-w-6xl h-[90vh]">
+        {/* back layers */}
+        <div className="absolute inset-0 bg-[#c7d7c9] rotate-1 rounded-[40px] shadow-md" />
+        <div className="absolute inset-0 bg-[#e3b7c2] -rotate-1 rounded-[40px] shadow-lg" />
 
-      <section className="flex flex-col gap-6">
-        <h2 className="text-2xl font-bold text-rose-500 border-b pb-2">Memory Lane</h2>
-        {pastDates.length === 0 ? (
-          <p className="text-muted-foreground italic py-8 text-center">Our story is just beginning...</p>
-        ) : (
-          pastDates.map(date => (
-            <div key={date.id} className="p-5 border rounded-xl bg-muted/30">
-              <h3 className="font-semibold">{date.title}</h3>
-              <p className="text-sm text-muted-foreground">{new Date(date.date_at).toLocaleDateString()}</p>
-            </div>
-          ))
-        )}
-      </section>
-    </div>
-  );
-}
+        {/* top sheet */}
+        <div className="relative h-full bg-[#ead2d7] rounded-[40px] p-14 text-slate-800 shadow-xl flex flex-col overflow-hidden">
+          {/* Header */}
+          <header className="shrink-0">
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
+              Sam and Callie&apos;s Couple Calendar 💗🌿
+            </h1>
+            <p className="mt-3 max-w-2xl text-lg text-slate-700">
+              Dates, plans, and little moments—together.
+            </p>
+          </header>
 
-// 2. Auth gate component
-async function AuthedHome() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+          {/* Main */}
+          <div className="mt-10 grid gap-8 md:grid-cols-2 flex-1 min-h-0">
+            {/* Add Event */}
+            <section className="rounded-3xl bg-[#f0e3e6] p-8 border border-black/5 overflow-y-auto">
+              <h2 className="text-2xl font-semibold">Add Event</h2>
 
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
-        <h1 className="text-5xl font-extrabold tracking-tight">Every date, remembered forever.</h1>
-        <div className="mt-4"><AuthButton /></div>
-      </div>
-    );
-  }
+              <form action={addEvent} className="mt-6 space-y-4">
+                <input
+                  name="title"
+                  required
+                  placeholder="Title"
+                  className="w-full rounded-xl border border-black/10 bg-[#fbf4f6] px-4 py-2"
+                />
 
-  return (
-    <div className="flex-1 w-full flex flex-col max-w-4xl p-5 mx-auto">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Hello! 👋</h1>
-          <p className="text-muted-foreground font-medium">Our Shared Timeline</p>
-        </div>
-        <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium">
-          + Add New Date
-        </button>
-      </div>
+                <input
+                  name="date_at"
+                  type="datetime-local"
+                  required
+                  className="w-full rounded-xl border border-black/10 bg-[#fbf4f6] px-4 py-2"
+                />
 
-      <Suspense fallback={<div className="mt-10 h-64 w-full bg-muted animate-pulse rounded-xl" />}>
-        <DatesData />
-      </Suspense>
-    </div>
-  );
-}
+                <input
+                  name="location"
+                  placeholder="Location"
+                  className="w-full rounded-xl border border-black/10 bg-[#fbf4f6] px-4 py-2"
+                />
 
-// 3. Root Page
-export default function Home() {
-  return (
-    <main className="min-h-screen flex flex-col items-center bg-background text-foreground">
-      <nav className="w-full flex justify-center border-b h-16">
-        <div className="w-full max-w-4xl flex justify-between items-center px-5">
-          <div className="font-bold text-xl">Our Date Archive ❤️</div>
-          <div className="flex items-center gap-4">
-            <AuthButton />
-            <ThemeSwitcher />
+                <textarea
+                  name="notes"
+                  rows={3}
+                  placeholder="Notes"
+                  className="w-full rounded-xl border border-black/10 bg-[#fbf4f6] px-4 py-2 resize-none"
+                />
+
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-[#c7d7c9] px-6 py-2.5 font-medium hover:bg-[#b7cbb9] transition"
+                >
+                  Add to Calendar
+                </button>
+              </form>
+            </section>
+
+            {/* Upcoming */}
+            <section className="rounded-3xl bg-[#eef2ee] p-8 border border-black/5 overflow-y-auto">
+              <h2 className="text-2xl font-semibold">Upcoming</h2>
+
+              <div className="mt-6 space-y-4">
+                {events && events.length > 0 ? (
+                  events.map((event) => (
+                    <div
+                      key={event.id}
+                      className="rounded-2xl bg-white/60 p-4 flex items-start justify-between gap-4"
+                    >
+                      <div>
+                        <div className="font-medium">{event.title}</div>
+                        <div className="text-sm text-slate-600">
+                          {new Date(event.date_at).toLocaleString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                          {event.location ? ` · ${event.location}` : ""}
+                        </div>
+                      </div>
+
+                      <RemoveEventButton id={event.id} />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-slate-600">
+                    No upcoming dates yet 💗
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
-        </div>
-      </nav>
 
-      <Suspense fallback={<div className="mt-20 h-10 w-48 bg-muted animate-pulse rounded" />}>
-        <AuthedHome />
-      </Suspense>
+          <footer className="mt-6 text-sm text-slate-600 shrink-0">
+            💗 Sam & Callie
+          </footer>
+        </div>
+      </div>
     </main>
   );
 }
