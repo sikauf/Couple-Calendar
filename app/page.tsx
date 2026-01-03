@@ -1,12 +1,10 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { RemoveEventButton } from "@/components/remove-event-button";
+import { supabase } from "@/lib/supabase/public";
 import { AddEventForm } from "@/components/add-event-form";
+import { RemoveEventButton } from "@/components/remove-event-button";
 
 export default async function Page() {
   noStore();
-
-  const supabase = await createClient();
 
   const { data: events } = await supabase
     .from("dates")
@@ -17,13 +15,10 @@ export default async function Page() {
   return (
     <main className="min-h-screen bg-[#d6ccc6] flex items-center justify-center">
       <div className="relative w-[92%] max-w-6xl h-[90vh]">
-        {/* back layers */}
         <div className="absolute inset-0 bg-[#c7d7c9] rotate-1 rounded-[40px] shadow-md" />
         <div className="absolute inset-0 bg-[#e3b7c2] -rotate-1 rounded-[40px] shadow-lg" />
 
-        {/* top sheet */}
         <div className="relative h-full bg-[#ead2d7] rounded-[40px] p-14 text-slate-800 shadow-xl flex flex-col overflow-hidden">
-          {/* Header */}
           <header className="shrink-0">
             <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
               Sam and Callie&apos;s Couple Calendar 💗🌿
@@ -31,14 +26,19 @@ export default async function Page() {
             <p className="mt-3 max-w-2xl text-lg text-slate-700">
               Dates, plans, and little moments—together.
             </p>
+
+            {/* Past dates link */}
+            <a
+              href="/past"
+              className="mt-4 inline-block text-sm text-slate-700 underline hover:text-slate-900"
+            >
+              View past dates →
+            </a>
           </header>
 
-          {/* Main */}
           <div className="mt-10 grid gap-8 md:grid-cols-2 flex-1 min-h-0">
-            {/* Add Event */}
             <AddEventForm />
 
-            {/* Upcoming */}
             <section className="rounded-3xl bg-[#eef2ee] p-8 border border-black/5 overflow-y-auto">
               <h2 className="text-2xl font-semibold">Upcoming</h2>
 

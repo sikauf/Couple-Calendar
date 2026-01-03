@@ -1,16 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { supabase } from "@/lib/supabase/public";
 
 export function AddEventForm() {
   async function addEvent(formData: FormData) {
     "use server";
 
-    const supabase = await createClient();
-
     const title = formData.get("title") as string;
     const date_at = formData.get("date_at") as string;
-    const location = formData.get("location") as string | null;
-    const notes = formData.get("notes") as string | null;
+    const location = (formData.get("location") as string) || null;
+    const notes = (formData.get("notes") as string) || null;
 
     if (!title || !date_at) return;
 
